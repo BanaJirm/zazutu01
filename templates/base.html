@@ -1,0 +1,139 @@
+  <!doctype html>
+  <html lang="ru">
+    <head>
+      <meta charset="utf-8">
+      <title>{% block title %}Zazutu{% endblock %}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+      <script>
+        (function(){try{var t=localStorage.getItem('zazutu_theme');if(t==='dark')document.documentElement.classList.add('theme-dark');else document.documentElement.classList.remove('theme-dark');}catch(e){}})();
+      </script>
+      <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}?v=3"
+      >
+    </head>
+    <body>
+      <div class="navbar-bar">
+        <header class="navbar-wrap">
+          <div class="navbar">
+            <div class="navbar__brand">
+              <a href="{{ url_for('index') }}">Zazutu</a>
+            </div>
+            <button type="button" class="navbar__toggler" aria-label="Открыть меню" id="navbar-toggler">
+              <span class="navbar__toggler-icon"></span>
+            </button>
+          </div>
+        </header>
+        <nav class="navbar__menu navbar__menu--desktop" id="navbar-menu-desktop" aria-hidden="false">
+          <div class="theme-switcher">
+            <span class="theme-switcher__label">Тема:</span>
+            <button type="button" class="btn btn--small theme-btn" data-theme="light">☀️</button>
+            <button type="button" class="btn btn--small theme-btn" data-theme="dark">🌙</button>
+          </div>
+          {% if current_user.is_authenticated %}
+            {% if current_user.is_admin %}
+              <a href="{{ url_for('admin_pins') }}">Модерация</a>
+              <a href="{{ url_for('admin_users') }}">Пользователи</a>
+            {% endif %}
+            <a href="{{ url_for('friends') }}">Друзья</a>
+            <a href="{{ url_for('chats') }}">Чаты</a>
+            <a href="{{ url_for('group_chats') }}">Группы</a>
+            <a href="{{ url_for('create_board') }}">Создать доску</a>
+            <a href="{{ url_for('create_pin') }}">Добавить пин</a>
+            <a href="{{ url_for('profile') }}">Профиль</a>
+            <a href="{{ url_for('contact_admin') }}">Связаться с администратором</a>
+            <span class="navbar__user">Привет, {{ current_user.username }}!</span>
+            <a href="{{ url_for('logout') }}">Выйти</a>
+          {% else %}
+            <a href="{{ url_for('login') }}">Войти</a>
+            <a href="{{ url_for('register') }}">Регистрация</a>
+          {% endif %}
+        </nav>
+      </div>
+
+      <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-container">
+              {% for category, message in messages %}
+                <div class="flash flash--{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block back_link %}
+        <p class="nav-back"><a href="#" class="back-link" onclick="history.back(); return false;">← Назад</a></p>
+        {% endblock %}
+
+        {% block content %}{% endblock %}
+      </main>
+
+      <nav class="navbar__menu navbar__menu--mobile" id="navbar-menu" aria-hidden="true">
+        <div class="theme-switcher">
+          <span class="theme-switcher__label">Тема:</span>
+          <button type="button" class="btn btn--small theme-btn" data-theme="light">☀️</button>
+          <button type="button" class="btn btn--small theme-btn" data-theme="dark">🌙</button>
+        </div>
+        {% if current_user.is_authenticated %}
+          {% if current_user.is_admin %}
+            <a href="{{ url_for('admin_pins') }}">Модерация</a>
+            <a href="{{ url_for('admin_users') }}">Пользователи</a>
+          {% endif %}
+          <a href="{{ url_for('friends') }}">Друзья</a>
+          <a href="{{ url_for('chats') }}">Чаты</a>
+          <a href="{{ url_for('group_chats') }}">Группы</a>
+          <a href="{{ url_for('create_board') }}">Создать доску</a>
+          <a href="{{ url_for('create_pin') }}">Добавить пин</a>
+          <a href="{{ url_for('profile') }}">Профиль</a>
+          <a href="{{ url_for('contact_admin') }}">Связаться с администратором</a>
+          <span class="navbar__user">Привет, {{ current_user.username }}!</span>
+          <a href="{{ url_for('logout') }}">Выйти</a>
+        {% else %}
+          <a href="{{ url_for('login') }}">Войти</a>
+          <a href="{{ url_for('register') }}">Регистрация</a>
+        {% endif %}
+      </nav>
+      <div class="navbar__backdrop" id="navbar-backdrop" aria-hidden="true"></div>
+
+      <script>
+        document.querySelectorAll('.theme-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var t = this.getAttribute('data-theme');
+            localStorage.setItem('zazutu_theme', t);
+            if(t==='dark')document.documentElement.classList.add('theme-dark');else document.documentElement.classList.remove('theme-dark');
+          });
+        });
+        (function() {
+          var toggler = document.getElementById('navbar-toggler');
+          var menu = document.getElementById('navbar-menu');
+          var backdrop = document.getElementById('navbar-backdrop');
+          function closeMenu() {
+            if (menu) menu.classList.remove('navbar__menu--open');
+            if (toggler) toggler.classList.remove('navbar__toggler--open');
+            if (backdrop) { backdrop.classList.remove('navbar__backdrop--open'); backdrop.setAttribute('aria-hidden', 'true'); }
+            document.body.classList.remove('nav-open');
+          }
+          function openMenu() {
+            if (menu) menu.classList.add('navbar__menu--open');
+            if (toggler) toggler.classList.add('navbar__toggler--open');
+            if (backdrop) { backdrop.classList.add('navbar__backdrop--open'); backdrop.setAttribute('aria-hidden', 'false'); }
+            document.body.classList.add('nav-open');
+          }
+          function toggleMenu() {
+            var isOpen = menu && menu.classList.contains('navbar__menu--open');
+            if (isOpen) closeMenu(); else openMenu();
+          }
+          if (toggler && menu) {
+            toggler.addEventListener('click', function() {
+              toggleMenu();
+              toggler.setAttribute('aria-label', menu.classList.contains('navbar__menu--open') ? 'Закрыть меню' : 'Открыть меню');
+            });
+            if (backdrop) backdrop.addEventListener('click', closeMenu);
+            menu.querySelectorAll('a').forEach(function(a) { a.addEventListener('click', closeMenu); });
+          }
+        })();
+      </script>
+      {% block scripts %}{% endblock %}
+    </body>
+  </html>

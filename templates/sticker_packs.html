@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Мои стикерпаки{% endblock %}
+
+{% block content %}
+  <h1>Мои стикерпаки</h1>
+  <p>
+    <a href="{{ url_for('sticker_pack_create') }}" class="btn btn--primary">Создать стикерпак</a>
+  </p>
+  {% if packs %}
+    <ul class="chat-list">
+      {% for pack in packs %}
+        <li class="chat-list__item">
+          <div>
+            <div class="chat-list__title">{{ pack.name }}</div>
+            <div class="chat-list__preview">Стикеров: {{ pack.stickers|length }}</div>
+          </div>
+          <div style="text-align:right;">
+            <a href="{{ url_for('sticker_pack_detail', pack_id=pack.id) }}" class="btn btn--primary btn--small">Открыть</a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>У вас пока нет стикерпаков. Нажмите «Создать стикерпак» и загрузите первое изображение.</p>
+  {% endif %}
+{% endblock %}

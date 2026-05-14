@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Групповые чаты{% endblock %}
+
+{% block content %}
+  <h1>Групповые чаты</h1>
+
+  <section class="friends-block" style="margin-bottom:1.5rem; max-width:520px;">
+    <h2>Создать новую группу</h2>
+    <form method="post" class="form">
+      {{ form.hidden_tag() }}
+
+      <div class="form__group">
+        {{ form.name.label }}
+        {{ form.name(class="input") }}
+        {% for error in form.name.errors %}
+          <div class="form__error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      {{ form.submit(class="btn btn--primary") }}
+    </form>
+  </section>
+
+  <section class="friends-block">
+    <h2>Мои группы</h2>
+    {% if chats %}
+      <ul class="chat-list">
+        {% for chat in chats %}
+          <li class="chat-list__item">
+            <div>
+              <div class="chat-list__title">{{ chat.name }}</div>
+              <div class="chat-list__preview">
+                {{ members_map.get(chat.id, '') }}
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <a class="btn btn--primary btn--small" href="{{ url_for('group_chat_detail', chat_id=chat.id) }}">
+                Открыть
+              </a>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>Вы пока не состоите ни в одной группе.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+

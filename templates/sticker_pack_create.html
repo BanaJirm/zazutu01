@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Создать стикерпак{% endblock %}
+
+{% block content %}
+  <h1>Создать стикерпак</h1>
+  <form method="post" enctype="multipart/form-data" class="form">
+    {{ form.hidden_tag() }}
+
+    <div class="form__group">
+      {{ form.name.label }}
+      {{ form.name(class="input") }}
+      {% for error in form.name.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form__group">
+      <span class="form__label">{{ form.image.label.text }}</span>
+      <div class="attach-input-wrap">
+        {{ form.image(class="attach-input-hidden", accept="image/*") }}
+        <label for="{{ form.image.id }}" class="attach-input-label">📎 {{ form.image.label.text }}</label>
+      </div>
+      {% for error in form.image.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    {{ form.submit(class="btn btn--primary") }}
+    <a href="{{ url_for('sticker_packs_list') }}" class="btn">Отмена</a>
+  </form>
+{% endblock %}

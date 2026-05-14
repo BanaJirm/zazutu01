@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки группы {{ chat.name }}{% endblock %}
+
+{% block content %}
+  <nav class="chat-menu">
+    <a href="{{ url_for('group_chat_detail', chat_id=chat.id) }}">Чат</a>
+    <span class="chat-menu__active">Управление группой</span>
+  </nav>
+
+  <h1>Управление группой</h1>
+
+  {% if is_owner %}
+    <section class="friends-block">
+      <h2>Название и аватарка</h2>
+      <form method="post" enctype="multipart/form-data" class="form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form__group">
+          <label for="group_name">Название группы</label>
+          <input id="group_name" name="name" class="input" type="text" value="{{ chat.name }}">
+        </div>
+        <div class="form__group">
+          <span class="form__label">Аватарка группы</span>
+          <div class="attach-input-wrap">
+            <input type="file" id="group_avatar" name="avatar" accept="image/*" class="attach-input-hidden">
+            <label for="group_avatar" class="attach-input-label">📎 Выбрать файл</label>
+          </div>
+        </div>
+        <button class="btn btn--primary" type="submit">Сохранить</button>
+      </form>
+    </section>
+  {% endif %}
+
+  <section class="friends-block" style="margin-top:1rem;">
+    <h2>Участники</h2>
+    <ul class="friends-list">
+      {% for m in members %}
+        <li>
+          <div>
+            <div class="friends-user">
+              {{ m.user.username }}
+              {% if m.role == 'owner' or m.user_id == chat.owner_id %}
+                (Владелец)
+              {% elif m.role == 'admin' %}
+                (Админ)
+              {% else %}
+                (Участник)
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            {% if m.user_id == current_user.id %}
+              {% if m.role == 'owner' or m.user_id == chat.owner_id %}
+                <span class="friends-meta">Владелец не может покинуть группу</span>
+              {% else %}
+                <form method="post" action="{{ url_for('group_chat_leave', chat_id=chat.id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--small" type="submit">Выйти</button>
+                </form>
+              {% endif %}
+            {% else %}
+              {% if is_owner %}
+                {% if m.role == 'member' %}
+                  <form method="post" action="{{ url_for('group_chat_change_role', chat_id=chat.id, user_id=m.user_id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="role" value="admin">
+                    <button class="btn btn--small" type="submit">Сделать админом</button>
+                  </form>
+                {% elif m.role == 'admin' %}
+                  <form method="post" action="{{ url_for('group_chat_change_role', chat_id=chat.id, user_id=m.user_id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="role" value="member">
+                    <button class="btn btn--small" type="submit">Сделать участником</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('group_chat_remove_member', chat_id=chat.id, user_id=m.user_id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--small" type="submit">Удалить</button>
+                </form>
+              {% elif current_member and current_member.role == 'admin' %}
+                {% if m.role == 'member' %}
+                  <form method="post" action="{{ url_for('group_chat_remove_member', chat_id=chat.id, user_id=m.user_id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn--small" type="submit">Удалить</button>
+                  </form>
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if is_owner or (current_member and current_member.role == 'admin') %}
+    <section class="friends-block" style="margin-top:1rem;">
+      <h2>Добавить участников из друзей</h2>
+      {% if friends_not_in_chat %}
+        <ul class="friends-list">
+          {% for u in friends_not_in_chat %}
+            <li>
+              <div class="friends-user">{{ u.username }}</div>
+              <div>
+                <form method="post" action="{{ url_for('group_chat_add_member', chat_id=chat.id, user_id=u.id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--small" type="submit">Добавить</button>
+                </form>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Все ваши друзья уже в группе или у вас пока нет друзей.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if is_owner %}
+    <section class="friends-block" style="margin-top:1.5rem;">
+      <h2>Удалить группу</h2>
+      <p class="friends-meta">Удаление необратимо. Все сообщения и участники будут удалены.</p>
+      <form method="post" action="{{ url_for('group_chat_delete', chat_id=chat.id) }}" onsubmit="return confirm('Удалить группу «{{ chat.name }}» без возможности восстановления?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn--danger">Удалить группу</button>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}
+

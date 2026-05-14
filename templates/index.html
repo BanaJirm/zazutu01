@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Zazutu — идеи и вдохновение{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1 class="hero__title">Zazutu — ваши идеи в одном месте</h1>
+    <p class="hero__text">
+      Сохраняйте вдохновляющие картинки, собирайте коллекции по интересам и делитесь находками с друзьями.
+    </p>
+    <p class="hero__text">
+      Подписывайтесь на других пользователей, находите новые идеи в ленте рекомендаций и обсуждайте их в личных чатах.
+    </p>
+  </section>
+
+  <section class="search-section">
+    <form method="post" class="form-inline">
+      {{ form.hidden_tag() }}
+      {{ form.query(class="input search-input", size=40, placeholder="Поиск по пинам...") }}
+      {{ form.submit(class="btn btn--primary") }}
+    </form>
+  </section>
+
+  <section class="pin-grid-section">
+    <h2 class="section-title">Рекомендации для вас</h2>
+    <div class="pin-grid">
+    {% for pin in pins %}
+      <article class="pin-card">
+        <a href="{{ url_for('pin_detail', pin_id=pin.id) }}">
+          <img
+            src="{{ url_for('static', filename='uploads/' ~ pin.image_filename) }}"
+            alt="{{ pin.title }}"
+          >
+        </a>
+        <div class="pin-card__body">
+          <h2 class="pin-card__title">
+            <a href="{{ url_for('pin_detail', pin_id=pin.id) }}">{{ pin.title }}</a>
+          </h2>
+          {% if pin.board %}
+            <a
+              class="pin-card__board"
+              href="{{ url_for('board_detail', board_id=pin.board.id) }}"
+            >
+              {{ pin.board.title }}
+            </a>
+          {% endif %}
+          <div class="pin-card__meta">
+            <span>{{ pin.likes|length }} ❤</span>
+            <span>{{ pin.comments|length }} 💬</span>
+          </div>
+        </div>
+      </article>
+    {% else %}
+      <p>Пока нет ни одного пина. Создайте доску и добавьте первый пин!</p>
+    {% endfor %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{{ board.title }}{% endblock %}
+
+{% block content %}
+  <h1>{{ board.title }}</h1>
+  {% if board.description %}
+    <p>{{ board.description }}</p>
+  {% endif %}
+  {% if current_user.is_authenticated and board.user_id == current_user.id %}
+    <form method="post" action="{{ url_for('board_delete', board_id=board.id) }}" style="margin-bottom:1rem;" onsubmit="return confirm('Удалить доску «{{ board.title }}» и все пины на ней?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn--danger btn--small">Удалить доску</button>
+    </form>
+  {% endif %}
+
+  <section class="pin-grid">
+    {% for pin in pins %}
+      <article class="pin-card">
+        <a href="{{ url_for('pin_detail', pin_id=pin.id) }}">
+          <img
+            src="{{ url_for('static', filename='uploads/' ~ pin.image_filename) }}"
+            alt="{{ pin.title }}"
+          >
+        </a>
+        <div class="pin-card__body">
+          <h2 class="pin-card__title">
+            <a href="{{ url_for('pin_detail', pin_id=pin.id) }}">{{ pin.title }}</a>
+          </h2>
+          <div class="pin-card__meta">
+            <span>{{ pin.likes|length }} ❤</span>
+            <span>{{ pin.comments|length }} 💬</span>
+          </div>
+        </div>
+      </article>
+    {% else %}
+      <p>На этой доске пока нет пинов.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

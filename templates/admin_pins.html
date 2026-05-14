@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Модерация пинов{% endblock %}
+
+{% block content %}
+  <h1>Модерация пинов</h1>
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Превью</th>
+        <th>Заголовок</th>
+        <th>Автор</th>
+        <th>Доска</th>
+        <th>Статус</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pin in pins %}
+        <tr>
+          <td>{{ pin.id }}</td>
+          <td>
+            <a href="{{ url_for('pin_detail', pin_id=pin.id) }}">
+              <img
+                src="{{ url_for('static', filename='uploads/' ~ pin.image_filename) }}"
+                alt="{{ pin.title }}"
+                class="admin-thumb"
+              >
+            </a>
+          </td>
+          <td>{{ pin.title }}</td>
+          <td>{{ pin.author.username }}</td>
+          <td>{{ pin.board.title }}</td>
+          <td>
+            {% if pin.is_approved %}
+              <span class="badge badge--approved">одобрен</span>
+            {% else %}
+              <span class="badge badge--pending">скрыт</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('admin_approve_pin', pin_id=pin.id) }}" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn--primary btn--small" type="submit">Одобрить</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_hide_pin', pin_id=pin.id) }}" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn--small" type="submit">Скрыть</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_delete_pin', pin_id=pin.id) }}" style="display:inline" onsubmit="return confirm('Удалить этот пин без возможности восстановления?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn--danger btn--small" type="submit">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="7">Пинов пока нет.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+

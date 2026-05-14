@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Чаты{% endblock %}
+
+{% block content %}
+  <h1>Чаты</h1>
+
+  <ul class="chat-list">
+    <li class="chat-list__item">
+      <div>
+        <div class="chat-list__title">🤖 {{ bot_user.username }}</div>
+        <div class="chat-list__preview">Создавайте стикерпаки из фото — отправьте картинку боту.</div>
+      </div>
+      <div style="text-align:right;">
+        {% if bot_conversation %}
+          <a class="btn btn--primary btn--small" href="{{ url_for('chat_detail', conversation_id=bot_conversation.id) }}">Открыть</a>
+        {% else %}
+          <form method="post" action="{{ url_for('chats_start_bot') }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn--primary btn--small">Начать чат</button>
+          </form>
+        {% endif %}
+      </div>
+    </li>
+  {% if conversations %}
+    {% for c in conversations %}
+        {% set other_id = c.other_user_id(current_user.id) %}
+        {% set other = users_map.get(other_id) %}
+        {% set last = last_message_by_conversation_id.get(c.id) %}
+        <li class="chat-list__item">
+          <div>
+            <div class="chat-list__title">
+              {{ other.username if other else "Пользователь #" ~ other_id }}
+            </div>
+            <div class="chat-list__preview">
+              {% if last %}
+                {% if last.image_filename %}
+                  📷 Картинка
+                  {% if last.body %}
+                    — {{ last.body|truncate(40) }}
+                  {% endif %}
+                {% elif last.body %}
+                  {{ last.body|truncate(60) }}
+                {% else %}
+                  Сообщение
+                {% endif %}
+              {% else %}
+                Чат создан, сообщений пока нет.
+              {% endif %}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="chat-list__time">
+              {% if last %}
+                {{ last.created_at.strftime('%d.%m %H:%M') }}
+              {% else %}
+                {{ c.created_at.strftime('%d.%m %H:%M') }}
+              {% endif %}
+            </div>
+            <a class="btn btn--primary btn--small" href="{{ url_for('chat_detail', conversation_id=c.id) }}">
+              Открыть
+            </a>
+          </div>
+        </li>
+    {% endfor %}
+  {% endif %}
+  </ul>
+  {% if not conversations %}
+    <p style="margin-top:1rem;">Добавьте пользователей в друзья и начните общение.</p>
+  {% endif %}
+{% endblock %}
+

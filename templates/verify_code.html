@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Подтверждение кода{% endblock %}
+
+{% block content %}
+  <h1>Подтверждение кода</h1>
+  {% if action == 'register' %}
+    <p>На вашу почту отправлен код для завершения регистрации. Введите его ниже.</p>
+  {% else %}
+    <p>На вашу почту отправлен код для входа. Введите его ниже.</p>
+  {% endif %}
+
+  <form method="post" class="form">
+    {{ form.hidden_tag() }}
+    <div class="form__group">
+      {{ form.code.label }}
+      {{ form.code(class="input", maxlength="6") }}
+      {% for error in form.code.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+    {{ form.submit(class="btn btn--primary") }}
+  </form>
+{% endblock %}
+

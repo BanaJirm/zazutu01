@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block title %}Чат с {{ other.username }}{% endblock %}
+
+{% block content %}
+  <div class="chat js-chat-area">
+    <div class="chat__header">
+      <h1>Чат с {{ other.username }}</h1>
+      <form method="post" action="{{ url_for('chat_delete', conversation_id=conversation.id) }}" style="display:inline;" onsubmit="return confirm('Удалить этот чат? Переписка будет удалена без возможности восстановления.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn--small btn--danger">Удалить чат</button>
+      </form>
+    </div>
+
+    {% if is_bot_chat %}
+    <div class="chat-sticker-actions" style="margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+      <span class="friends-meta">Стикерпаки:</span>
+      <a href="{{ url_for('sticker_packs_list') }}" class="btn btn--primary btn--small">Мои стикерпаки</a>
+      <a href="{{ url_for('sticker_pack_create') }}" class="btn btn--small">Создать стикерпак</a>
+    </div>
+    {% endif %}
+    <div class="chat-bg-switcher" style="margin-bottom:0.5rem;">
+      <span class="friends-meta">Фон чата:</span>
+      <button type="button" class="btn btn--small chat-bg-btn" data-bg="default">Обычный</button>
+      <button type="button" class="btn btn--small chat-bg-btn" data-bg="dark">Тёмный</button>
+      <button type="button" class="btn btn--small chat-bg-btn" data-bg="gradient">Градиент</button>
+    </div>
+    <div class="chat__messages js-chat-messages" id="chat-messages" data-conversation-id="{{ conversation.id }}" data-today="{{ today_date.isoformat() }}" data-yesterday="{{ yesterday_date.isoformat() }}">
+      {% for m in messages %}
+        {% set msg_date = m.created_at.date() if m.created_at else today_date %}
+        {% if loop.first %}
+        <div class="chat-date-divider" data-date="{{ msg_date.isoformat() }}">
+          {% if msg_date == today_date %}Сегодня{% elif msg_date == yesterday_date %}Вчера{% else %}{{ msg_date.strftime('%d.%m.%Y') }}{% endif %}
+        </div>
+        {% elif messages[loop.index0 - 1].created_at and messages[loop.index0 - 1].created_at.date() != msg_date %}
+        <div class="chat-date-divider" data-date="{{ msg_date.isoformat() }}">
+          {% if msg_date == today_date %}Сегодня{% elif msg_date == yesterday_date %}Вчера{% else %}{{ msg_date.strftime('%d.%m.%Y') }}{% endif %}
+        </div>
+        {% endif %}
+        {% set is_me = (m.sender_id == current_user.id) %}
+        <div class="chat-message {{ 'chat-message--me' if is_me else 'chat-message--other' }}" data-message-id="{{ m.id }}" data-date="{{ msg_date.isoformat() }}">
+          <div class="chat-message__wrap">
+            <div class="chat-message__head">
+              <span class="chat-message__author">{% if is_me %}Вы{% else %}{{ other.username }}{% endif %}</span>
+              <span class="chat-message__actions">
+                <button type="button" class="chat-message__action-btn" data-action="reply" data-message-id="{{ m.id }}" data-body="{{ (m.body or '')[:50]|e }}" data-author="{{ ('Вы' if is_me else other.username)|e }}">↩</button>
+                {% if is_me or current_user.is_admin %}
+                <button type="button" class="chat-message__action-btn chat-message__action-btn--danger" data-action="delete" data-message-id="{{ m.id }}">✕</button>
+                {% endif %}
+              </span>
+            </div>
+            <div class="chat-message__bubble">
+              {% if m.reply_to %}
+              <div class="chat-message__reply-to">
+                <span class="chat-message__reply-author">{{ 'Вы' if m.reply_to.sender_id == current_user.id else m.reply_to.sender.username }}</span>
+                <span class="chat-message__reply-body">{{ (m.reply_to.body or '')[:60] }}{% if (m.reply_to.body or '')|length > 60 %}…{% endif %}</span>
+              </div>
+              {% endif %}
+              {% if m.body %}
+                <div class="chat-message__text">{{ m.body }}</div>
+              {% endif %}
+              {% if m.image_filename %}
+                <div class="chat-message__img-wrap">
+                  <img src="{{ url_for('static', filename='uploads/' ~ m.image_filename) }}" alt="Изображение" class="chat-message__img">
+                </div>
+              {% endif %}
+              {% if m.sticker_pack %}
+                <div class="chat-message__stickers">
+                  {% for s in m.sticker_pack.stickers %}
+                    <img src="{{ url_for('static', filename='uploads/' ~ s.image_filename) }}" alt="Стикер" class="chat-message__sticker-img">
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <p>Сообщений пока нет. Напишите что-нибудь первым.</p>
+      {% endfor %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="form chat-form chat-form--telegram" id="chat-form" autocomplete="off">
+      {{ form.hidden_tag() }}
+      <input type="hidden" name="sticker_id" id="chat-sticker-id" value="">
+      <input type="hidden" name="reply_to_id" id="chat-reply-to-id" value="">
+
+      <div id="chat-reply-preview" class="chat-reply-preview" style="display:none;">
+        <span class="chat-reply-preview__label">Ответ на:</span>
+        <span id="chat-reply-preview-text" class="chat-reply-preview__text"></span>
+        <button type="button" id="chat-reply-cancel" class="chat-reply-preview__cancel">✕</button>
+      </div>
+      <div id="chat-attach-preview" class="chat-attach-preview" style="display:none;">
+        <img id="chat-attach-preview-img" class="chat-attach-preview__img" alt="">
+        <span class="chat-attach-preview__label">Фото прикреплено</span>
+        <button type="button" id="chat-attach-clear" class="chat-attach-preview__clear">✕</button>
+      </div>
+
+      <div class="form__group form__group--chat">
+        <div class="chat-input-row">
+          <label for="chat-image-input" class="chat-attach-btn">
+            <span class="chat-attach-icon" aria-hidden="true">📎</span>
+          </label>
+          <input type="file" id="chat-image-input" name="image" accept="image/*" class="chat-attach-input">
+          <div class="chat-input-wrap">
+            {{ form.body(class="input chat-input", rows=1, id="chat-message-body", autocomplete="off") }}
+            <div id="chat-emoji-panel" class="emoji-panel" style="display:none;">
+            {% set ios_emojis = ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','💀','☠️','💩','🤡','👋','🤚','🖐','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','🤲','🤝','🙏','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','🎉','🎊','🔥','⭐','🌟','✨','💫','🌈','☀️','🌙','🌸','🌺','🍀','🍕','🍔','🍟','☕','🎵','🎶','⚽','🎮','📱','💻'] %}
+            {% for emoji in ios_emojis %}
+              <button type="button" class="emoji-btn">{{ emoji }}</button>
+            {% endfor %}
+          </div>
+          </div>
+          <button type="button" class="chat-action-btn" id="chat-emoji-toggle">🙂</button>
+          <button type="button" class="chat-action-btn" id="chat-sticker-toggle">✨</button>
+          <button type="submit" class="btn btn--primary chat-send-btn" aria-label="Отправить">→</button>
+        </div>
+        {% for error in form.body.errors %}
+          <div class="form__error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div id="chat-sticker-panel" class="chat-sticker-panel" style="display:none;">
+        {% if user_sticker_packs %}
+          {% for pack in user_sticker_packs %}
+            <div class="chat-sticker-pack">
+              <div class="chat-sticker-pack__name">{{ pack.name }}</div>
+              <div class="chat-sticker-pack__list">
+                {% for s in pack.stickers %}
+                  <button type="button" class="chat-sticker-btn" data-sticker-id="{{ s.id }}" data-image-url="{{ url_for('static', filename='uploads/' ~ s.image_filename) }}">
+                    <img src="{{ url_for('static', filename='uploads/' ~ s.image_filename) }}" alt="Стикер" width="64" height="64">
+                  </button>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="friends-meta">Нет стикерпаков. Управление стикерпаками — в чате с ботом (раздел Чаты).</p>
+        {% endif %}
+      </div>
+
+      {% for error in form.image.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </form>
+  </div>
+
+  <script>
+    (function () {
+      const container = document.getElementById('chat-messages');
+      if (!container) return;
+
+      const convId = container.getAttribute('data-conversation-id');
+      let lastId = 0;
+
+      function updateLastId() {
+        const items = container.querySelectorAll('[data-message-id]');
+        if (!items.length) {
+          lastId = 0;
+          return;
+        }
+        const last = items[items.length - 1];
+        lastId = parseInt(last.getAttribute('data-message-id')) || 0;
+      }
+
+      function formatDateLabel(dateKey) {
+        var today = container.getAttribute('data-today') || '';
+        var yesterday = container.getAttribute('data-yesterday') || '';
+        if (dateKey === today) return 'Сегодня';
+        if (dateKey === yesterday) return 'Вчера';
+        var parts = dateKey.split('-');
+        if (parts.length === 3) return parts[2] + '.' + parts[1] + '.' + parts[0];
+        return dateKey;
+      }
+      function ensureDateDivider(dateKey) {
+        var last = container.lastElementChild;
+        var lastDate = null;
+        if (last && last.classList.contains('chat-message')) lastDate = last.getAttribute('data-date');
+        else if (last && last.classList.contains('chat-date-divider')) lastDate = last.getAttribute('data-date');
+        if (lastDate === dateKey) return;
+        var div = document.createElement('div');
+        div.className = 'chat-date-divider';
+        div.setAttribute('data-date', dateKey);
+        div.textContent = formatDateLabel(dateKey);
+        container.appendChild(div);
+      }
+      function appendMessages(msgs) {
+        if (!Array.isArray(msgs) || !msgs.length) return;
+        const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+
+        msgs.forEach(function (m) {
+          var dateKey = m.date_key || m.created_at && m.created_at.substring(0, 10);
+          if (dateKey) ensureDateDivider(dateKey);
+
+          const outer = document.createElement('div');
+          outer.className = 'chat-message ' + (m.is_me ? 'chat-message--me' : 'chat-message--other');
+          outer.setAttribute('data-message-id', m.id);
+          if (dateKey) outer.setAttribute('data-date', dateKey);
+
+          const wrap = document.createElement('div');
+          wrap.className = 'chat-message__wrap';
+          const head = document.createElement('div');
+          head.className = 'chat-message__head';
+          const author = document.createElement('span');
+          author.className = 'chat-message__author';
+          author.textContent = m.author_label || '';
+          head.appendChild(author);
+          const actions = document.createElement('span');
+          actions.className = 'chat-message__actions';
+          const replyBtn = document.createElement('button');
+          replyBtn.type = 'button';
+          replyBtn.className = 'chat-message__action-btn';
+          replyBtn.setAttribute('data-action', 'reply');
+          replyBtn.setAttribute('data-message-id', m.id);
+          replyBtn.setAttribute('data-body', (m.body || '').substring(0, 50));
+          replyBtn.setAttribute('data-author', m.author_label || '');
+          replyBtn.title = 'Ответить';
+          replyBtn.textContent = '↩';
+          actions.appendChild(replyBtn);
+          if (m.is_me) {
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'chat-message__action-btn chat-message__action-btn--danger';
+            delBtn.setAttribute('data-action', 'delete');
+            delBtn.setAttribute('data-message-id', m.id);
+            delBtn.title = 'Удалить';
+            delBtn.textContent = '✕';
+            actions.appendChild(delBtn);
+          }
+          head.appendChild(actions);
+          wrap.appendChild(head);
+
+          const bubble = document.createElement('div');
+          bubble.className = 'chat-message__bubble';
+
+          if (m.reply_to && m.reply_to.body !== undefined) {
+            const replyBlock = document.createElement('div');
+            replyBlock.className = 'chat-message__reply-to';
+            const replyAuthor = document.createElement('span');
+            replyAuthor.className = 'chat-message__reply-author';
+            replyAuthor.textContent = m.reply_to.author_label || '';
+            const replyBody = document.createElement('span');
+            replyBody.className = 'chat-message__reply-body';
+            replyBody.textContent = (m.reply_to.body || '').substring(0, 60) + ((m.reply_to.body || '').length > 60 ? '…' : '');
+            replyBlock.appendChild(replyAuthor);
+            replyBlock.appendChild(replyBody);
+            bubble.appendChild(replyBlock);
+          }
+
+          if (m.body) {
+            const textDiv = document.createElement('div');
+            textDiv.className = 'chat-message__text';
+            textDiv.textContent = m.body;
+            bubble.appendChild(textDiv);
+          }
+
+          if (m.image_url) {
+            const imgWrap = document.createElement('div');
+            imgWrap.className = 'chat-message__img-wrap';
+            const img = document.createElement('img');
+            img.src = m.image_url;
+            img.alt = 'Изображение';
+            img.className = 'chat-message__img';
+            imgWrap.appendChild(img);
+            bubble.appendChild(imgWrap);
+          }
+
+          if (m.sticker_pack && m.sticker_pack.sticker_urls && m.sticker_pack.sticker_urls.length) {
+            const stickersWrap = document.createElement('div');
+            stickersWrap.className = 'chat-message__stickers';
+            m.sticker_pack.sticker_urls.forEach(function(url) {
+              const im = document.createElement('img');
+              im.src = url;
+              im.alt = 'Стикер';
+              im.className = 'chat-message__sticker-img';
+              stickersWrap.appendChild(im);
+            });
+            bubble.appendChild(stickersWrap);
+          }
+
+          wrap.appendChild(bubble);
+          outer.appendChild(wrap);
+          container.appendChild(outer);
+        });
+
+        updateLastId();
+        if (isAtBottom) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+
+      function poll() {
+        const url = '{{ url_for("chat_messages_api", conversation_id=conversation.id) }}' + '?after_id=' + encodeURIComponent(lastId);
+        fetch(url, {credentials: 'same-origin'})
+          .then(function (resp) { return resp.ok ? resp.json() : []; })
+          .then(function (data) {
+            appendMessages(data);
+          })
+          .catch(function () {
+            // игнорируем ошибки сети
+          })
+          .finally(function () {
+            setTimeout(poll, 2000);
+          });
+      }
+
+      updateLastId();
+      // Немного прокручиваем вниз при загрузке
+      container.scrollTop = container.scrollHeight;
+      setTimeout(poll, 2000);
+
+      const textarea = document.getElementById('chat-message-body');
+      const emojiToggle = document.getElementById('chat-emoji-toggle');
+      const emojiPanel = document.getElementById('chat-emoji-panel');
+      const stickerToggle = document.getElementById('chat-sticker-toggle');
+      const stickerPanel = document.getElementById('chat-sticker-panel');
+      const chatForm = document.getElementById('chat-form');
+      const stickerIdInput = document.getElementById('chat-sticker-id');
+      const fileInput = document.getElementById('chat-image-input');
+      const replyToInput = document.getElementById('chat-reply-to-id');
+      const replyPreview = document.getElementById('chat-reply-preview');
+      const replyPreviewText = document.getElementById('chat-reply-preview-text');
+      const replyCancelBtn = document.getElementById('chat-reply-cancel');
+      const attachPreview = document.getElementById('chat-attach-preview');
+      const attachPreviewImg = document.getElementById('chat-attach-preview-img');
+      const attachClearBtn = document.getElementById('chat-attach-clear');
+      const sendBtn = chatForm ? chatForm.querySelector('.chat-send-btn') : null;
+      const apiUrl = '{{ url_for("chat_send_message_api", conversation_id=conversation.id) }}';
+      const deleteUrlTmpl = '{{ url_for("chat_delete_message_api", conversation_id=conversation.id, message_id=0) }}'.replace('/0', '/');
+
+      function getCsrfToken() {
+        var input = chatForm && chatForm.querySelector('input[name="csrf_token"]');
+        return input ? input.value : '';
+      }
+      function clearReply() {
+        if (replyToInput) replyToInput.value = '';
+        if (replyPreview) replyPreview.style.display = 'none';
+        if (replyPreviewText) replyPreviewText.textContent = '';
+      }
+      function clearAttach() {
+        if (fileInput) fileInput.value = '';
+        if (attachPreview) attachPreview.style.display = 'none';
+      }
+      function appendOneMessage(m) {
+        appendMessages([m]);
+      }
+
+      if (fileInput) {
+        fileInput.addEventListener('change', function () {
+          if (stickerIdInput) stickerIdInput.value = '';
+          var file = this.files && this.files[0];
+          if (file && file.type.indexOf('image') !== -1) {
+            var url = URL.createObjectURL(file);
+            if (attachPreviewImg) attachPreviewImg.src = url;
+            if (attachPreview) attachPreview.style.display = 'flex';
+          } else if (attachPreview) attachPreview.style.display = 'none';
+        });
+      }
+      if (attachClearBtn) attachClearBtn.addEventListener('click', function () { clearAttach(); });
+      if (replyCancelBtn) replyCancelBtn.addEventListener('click', function () { clearReply(); });
+
+      container.addEventListener('click', function (e) {
+        var btn = e.target.closest('.chat-message__action-btn');
+        var msgRow = e.target.closest('.chat-message');
+        if (msgRow && !btn) {
+          var isMobile = window.innerWidth <= 768;
+          if (isMobile) {
+            container.querySelectorAll('.chat-message--actions-visible').forEach(function (el) { if (el !== msgRow) el.classList.remove('chat-message--actions-visible'); });
+            msgRow.classList.toggle('chat-message--actions-visible');
+          }
+          return;
+        }
+        if (!btn) return;
+        var action = btn.getAttribute('data-action');
+        var msgId = btn.getAttribute('data-message-id');
+        if (action === 'reply') {
+          if (replyToInput) replyToInput.value = msgId || '';
+          if (replyPreviewText) replyPreviewText.textContent = (btn.getAttribute('data-author') || '') + ': ' + (btn.getAttribute('data-body') || '');
+          if (replyPreview) replyPreview.style.display = 'flex';
+          if (msgRow) msgRow.classList.remove('chat-message--actions-visible');
+        } else if (action === 'delete' && msgId) {
+          if (!confirm('Удалить сообщение?')) return;
+          fetch(deleteUrlTmpl + msgId, { method: 'DELETE', credentials: 'same-origin', headers: { 'X-CSRFToken': getCsrfToken(), 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) { if (data && data.ok) { var el = container.querySelector('[data-message-id="' + msgId + '"]'); if (el) el.remove(); } })
+            .catch(function () {});
+        }
+      });
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('.js-chat-messages') || e.target.closest('.chat-message')) return;
+        container.querySelectorAll('.chat-message--actions-visible').forEach(function (el) { el.classList.remove('chat-message--actions-visible'); });
+      });
+
+      if (chatForm) {
+        chatForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var body = textarea ? textarea.value.trim() : '';
+          var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+          var stickerId = stickerIdInput ? parseInt(stickerIdInput.value, 10) : 0;
+          if (!body && !hasFile && !stickerId) return;
+          var fd = new FormData();
+          fd.append('body', body || '');
+          fd.append('csrf_token', getCsrfToken());
+          if (replyToInput && replyToInput.value) fd.append('reply_to_id', replyToInput.value);
+          if (stickerId) fd.append('sticker_id', stickerId);
+          if (hasFile) fd.append('image', fileInput.files[0]);
+          if (sendBtn) sendBtn.disabled = true;
+          fetch(apiUrl, { method: 'POST', credentials: 'same-origin', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.ok && data.message) {
+                appendOneMessage(data.message);
+                if (textarea) textarea.value = '';
+                if (stickerIdInput) stickerIdInput.value = '';
+                clearReply();
+                clearAttach();
+                container.scrollTop = container.scrollHeight;
+              } else if (data && data.error) alert(data.error);
+            })
+            .catch(function () { alert('Ошибка отправки'); })
+            .finally(function () { if (sendBtn) sendBtn.disabled = false; });
+        });
+      }
+      document.querySelectorAll('.chat-sticker-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = this.getAttribute('data-sticker-id');
+          if (!id) return;
+          if (stickerIdInput) stickerIdInput.value = id;
+          if (fileInput) fileInput.value = '';
+          clearAttach();
+          var fd = new FormData();
+          fd.append('sticker_id', id);
+          fd.append('body', '');
+          fd.append('csrf_token', getCsrfToken());
+          if (replyToInput && replyToInput.value) fd.append('reply_to_id', replyToInput.value);
+          if (sendBtn) sendBtn.disabled = true;
+          fetch(apiUrl, { method: 'POST', credentials: 'same-origin', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.ok && data.message) {
+                appendOneMessage(data.message);
+                if (stickerIdInput) stickerIdInput.value = '';
+                clearReply();
+                container.scrollTop = container.scrollHeight;
+              }
+            })
+            .finally(function () { if (sendBtn) sendBtn.disabled = false; });
+        });
+      });
+
+      if (emojiToggle && emojiPanel) {
+        emojiToggle.addEventListener('click', function () {
+          const show = emojiPanel.style.display === 'none';
+          emojiPanel.style.display = show ? 'block' : 'none';
+          if (show && stickerPanel) stickerPanel.style.display = 'none';
+        });
+      }
+      if (emojiPanel && textarea) {
+        emojiPanel.addEventListener('click', function (e) {
+          if (e.target.classList.contains('emoji-btn')) {
+            const emoji = e.target.textContent;
+            const start = textarea.selectionStart || textarea.value.length;
+            const end = textarea.selectionEnd || textarea.value.length;
+            const value = textarea.value;
+            textarea.value = value.slice(0, start) + emoji + value.slice(end);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+          }
+        });
+      }
+      if (stickerToggle && stickerPanel) {
+        stickerToggle.addEventListener('click', function () {
+          const show = stickerPanel.style.display === 'none';
+          stickerPanel.style.display = show ? 'block' : 'none';
+          if (show && emojiPanel) emojiPanel.style.display = 'none';
+        });
+      }
+      document.querySelectorAll('.chat-sticker-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = this.getAttribute('data-sticker-id');
+          if (stickerIdInput) stickerIdInput.value = id || '';
+          if (fileInput) fileInput.value = '';
+          if (chatForm) chatForm.submit();
+        });
+      });
+      if (fileInput && !fileInput.hasAttribute('data-preview-bound')) {
+        fileInput.setAttribute('data-preview-bound', '1');
+      }
+      var chatEl = document.querySelector('.js-chat-area .js-chat-messages');
+      if (chatEl) {
+        var bg = localStorage.getItem('zazutu_chat_bg') || 'default';
+        chatEl.classList.remove('chat-bg-default', 'chat-bg-dark', 'chat-bg-gradient');
+        chatEl.classList.add('chat-bg-' + bg);
+        document.querySelectorAll('.chat-bg-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var b = this.getAttribute('data-bg');
+            localStorage.setItem('zazutu_chat_bg', b);
+            chatEl.classList.remove('chat-bg-default', 'chat-bg-dark', 'chat-bg-gradient');
+            chatEl.classList.add('chat-bg-' + b);
+          });
+        });
+      }
+    })();
+  </script>
+{% endblock %}
+

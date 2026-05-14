@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Добавить пин{% endblock %}
+
+{% block content %}
+  <h1>Добавить пин</h1>
+  <form method="post" enctype="multipart/form-data" class="form">
+    {{ form.hidden_tag() }}
+
+    <div class="form__group">
+      {{ form.title.label }}
+      {{ form.title(class="input") }}
+      {% for error in form.title.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form__group">
+      {{ form.description.label }}
+      {{ form.description(class="input") }}
+      {% for error in form.description.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form__group">
+      {{ form.board.label }}
+      {{ form.board(class="input") }}
+      {% for error in form.board.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form__group">
+      <span class="form__label">{{ form.image.label.text }}</span>
+      <div class="attach-input-wrap">
+        {{ form.image(class="attach-input-hidden", accept="image/*") }}
+        <label for="{{ form.image.id }}" class="attach-input-label">📎 {{ form.image.label.text }}</label>
+      </div>
+      {% for error in form.image.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    {{ form.submit(class="btn btn--primary") }}
+  </form>
+{% endblock %}

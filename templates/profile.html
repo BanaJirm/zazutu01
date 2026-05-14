@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+  <h1>Личный кабинет</h1>
+
+  <section class="profile">
+    <h2>Основная информация</h2>
+    <p>
+      {% if user.avatar_filename %}
+        <img
+          src="{{ url_for('static', filename='uploads/' ~ user.avatar_filename) }}"
+          alt="{{ user.username }}"
+          class="avatar avatar--lg"
+        >
+      {% else %}
+        <span class="avatar avatar--lg">
+          {{ user.username[:1].upper() }}
+        </span>
+      {% endif %}
+    </p>
+    <p><strong>Имя пользователя:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Роль:</strong>
+      {% if user.is_admin %}
+        Администратор
+      {% else %}
+        Пользователь
+      {% endif %}
+    </p>
+    <p><strong>Статус email:</strong>
+      {% if user.email_verified %}
+        подтверждён
+      {% else %}
+        не подтверждён
+      {% endif %}
+    </p>
+    <p><strong>Дата регистрации:</strong> {{ user.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+  </section>
+
+  <section class="profile">
+    <h2>Активность</h2>
+    <p><strong>Количество досок:</strong> {{ user.boards|length }}</p>
+    <p><strong>Количество пинов:</strong> {{ user.pins|length }}</p>
+    <p><strong>Количество комментариев:</strong> {{ user.comments|length }}</p>
+  </section>
+
+  <section class="profile">
+    <h2>Настройки</h2>
+    <p>
+      <a class="btn btn--small btn--primary" href="{{ url_for('settings_profile') }}">Изменить имя и аватарку</a>
+      <a class="btn btn--small" href="{{ url_for('settings_password') }}">Сменить пароль</a>
+      <a class="btn btn--small" href="{{ url_for('settings_email') }}">Сменить email</a>
+    </p>
+  </section>
+{% endblock %}
+

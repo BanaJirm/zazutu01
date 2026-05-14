@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Друзья{% endblock %}
+
+{% block content %}
+  <h1>Друзья</h1>
+
+  <div class="friends-layout">
+    <section class="friends-block">
+      <h2>Мои друзья</h2>
+      {% if friends_links %}
+        <ul class="friends-list">
+          {% for link in friends_links %}
+            {% set other_id = link.other_user_id(current_user.id) %}
+            {% set other = users_map.get(other_id) %}
+            <li>
+              <div>
+                <div class="friends-user">
+                  {{ other.username if other else "Пользователь #" ~ other_id }}
+                </div>
+                <div class="friends-meta">
+                  В друзьях с
+                  {% if link.accepted_at %}
+                    {{ link.accepted_at.strftime('%d.%m.%Y') }}
+                  {% else %}
+                    недавнего времени
+                  {% endif %}
+                </div>
+              </div>
+              <div>
+                <form method="post" action="{{ url_for('friend_remove', link_id=link.id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--small" type="submit">Удалить из друзей</button>
+                </form>
+                {% if other %}
+                  <form method="post" action="{{ url_for('chats_start', user_id=other.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn--primary btn--small" type="submit">Написать</button>
+                  </form>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Пока нет друзей. Найдите пользователей через поиск справа и отправьте им заявку.</p>
+      {% endif %}
+
+      <h2>Входящие заявки</h2>
+      {% if incoming %}
+        <ul class="friends-list">
+          {% for link in incoming %}
+            {% set other_id = link.other_user_id(current_user.id) %}
+            {% set other = users_map.get(other_id) %}
+            <li>
+              <div>
+                <div class="friends-user">
+                  {{ other.username if other else "Пользователь #" ~ other_id }}
+                </div>
+                <div class="friends-meta">
+                  Хочет добавить вас в друзья
+                </div>
+              </div>
+              <div>
+                <form method="post" action="{{ url_for('friend_accept', link_id=link.id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--primary btn--small" type="submit">Принять</button>
+                </form>
+                <form method="post" action="{{ url_for('friend_decline', link_id=link.id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--small" type="submit">Отклонить</button>
+                </form>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Новых заявок в друзья нет.</p>
+      {% endif %}
+
+      <h2>Исходящие заявки</h2>
+      {% if outgoing %}
+        <ul class="friends-list">
+          {% for link in outgoing %}
+            {% set other_id = link.other_user_id(current_user.id) %}
+            {% set other = users_map.get(other_id) %}
+            <li>
+              <div>
+                <div class="friends-user">
+                  {{ other.username if other else "Пользователь #" ~ other_id }}
+                </div>
+                <div class="friends-meta">
+                  Вы отправили заявку в друзья
+                </div>
+              </div>
+              <div>
+                <form method="post" action="{{ url_for('friend_cancel', link_id=link.id) }}" style="display:inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn--small" type="submit">Отменить</button>
+                </form>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Вы пока не отправляли заявок.</p>
+      {% endif %}
+    </section>
+
+    <section class="friends-block">
+      <h2>Найти пользователей</h2>
+      <form method="get" class="form-inline" style="margin-bottom: 0.75rem;">
+        <input
+          class="input search-input"
+          type="text"
+          name="q"
+          value="{{ q or '' }}"
+          placeholder="Поиск по имени..."
+          autocomplete="off"
+        >
+        <button class="btn btn--primary" type="submit">Найти</button>
+        {% if q %}
+          <a class="btn btn--small" href="{{ url_for('friends') }}">Сбросить</a>
+        {% endif %}
+      </form>
+
+      {% if q %}
+        <p class="friends-meta">Результаты по запросу «{{ q }}»:</p>
+      {% endif %}
+
+      {% if search_results %}
+        <ul class="friends-list">
+          {% for u in search_results %}
+            {% set rel = relationship_by_user_id.get(u.id) %}
+            <li>
+              <div>
+                <div class="friends-user">{{ u.username }}</div>
+                <div class="friends-meta">{{ u.email }}</div>
+              </div>
+              <div>
+                {% if not rel %}
+                  <form method="post" action="{{ url_for('friend_request', user_id=u.id, q=q) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn--primary btn--small" type="submit">Добавить в друзья</button>
+                  </form>
+                {% elif rel.status == "pending" and rel.requested_by_id == current_user.id %}
+                  <span class="friends-meta">Ожидает подтверждения</span>
+                {% elif rel.status == "pending" and rel.requested_by_id != current_user.id %}
+                  <span class="friends-meta">Пользователь уже отправил вам заявку</span>
+                {% elif rel.status == "accepted" %}
+                  <span class="friends-meta">Уже в друзьях</span>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% elif q %}
+        <p>Пользователи не найдены.</p>
+      {% else %}
+        <p>Введите имя пользователя, чтобы найти друзей.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
+

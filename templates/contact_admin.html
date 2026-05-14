@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Связаться с администратором{% endblock %}
+
+{% block content %}
+  <h1>Связаться с администратором</h1>
+  <p class="friends-meta">Опишите ваш вопрос или проблему — мы ответим на вашу почту.</p>
+  <form method="post" class="form">
+    {{ form.hidden_tag() }}
+    <div class="form__group">
+      {{ form.subject.label }}
+      {{ form.subject(class="input") }}
+      {% for error in form.subject.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+    <div class="form__group">
+      {{ form.message.label }}
+      {{ form.message(class="input", rows=5) }}
+      {% for error in form.message.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+    {{ form.submit(class="btn btn--primary") }}
+  </form>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Смена email{% endblock %}
+
+{% block content %}
+  <h1>Смена email</h1>
+
+  <section class="friends-block" style="max-width:520px;">
+    <form method="post" class="form">
+      {{ form.hidden_tag() }}
+
+      <div class="form__group">
+        {{ form.email.label }}
+        {{ form.email(class="input") }}
+        {% for error in form.email.errors %}
+          <div class="form__error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      {{ form.submit(class="btn btn--primary") }}
+    </form>
+  </section>
+{% endblock %}
+

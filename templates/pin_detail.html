@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pin.title }}{% endblock %}
+
+{% block content %}
+  <article class="pin-detail">
+    <div class="pin-detail__image">
+      <img
+        src="{{ url_for('static', filename='uploads/' ~ pin.image_filename) }}"
+        alt="{{ pin.title }}"
+      >
+    </div>
+    <div class="pin-detail__info">
+      <h1>{{ pin.title }}</h1>
+      {% if pin.description %}
+        <p>{{ pin.description }}</p>
+      {% endif %}
+
+      <p class="pin-detail__meta">
+        На доске:
+        <a href="{{ url_for('board_detail', board_id=pin.board.id) }}">
+          {{ pin.board.title }}
+        </a>
+        <br>
+        Автор: {{ pin.author.username }}
+      </p>
+
+      <form method="post" action="{{ url_for('like_pin', pin_id=pin.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn--like">
+          {% if is_liked %}Убрать лайк{% else %}Нравится{% endif %}
+          ({{ pin.likes|length }})
+        </button>
+      </form>
+
+      <section class="comments">
+        <h2>Комментарии ({{ pin.comments|length }})</h2>
+
+        {% for comment in pin.comments %}
+          <div class="comment" data-comment-id="{{ comment.id }}">
+            <div class="comment__head">
+              <span class="comment__author">{{ comment.author.username }}</span>
+              {% if current_user.is_authenticated and (comment.author.id == current_user.id or current_user.is_admin) %}
+                <form method="post" action="{{ url_for('comment_delete', pin_id=pin.id, comment_id=comment.id) }}" class="comment__delete-form" onsubmit="return confirm('Удалить комментарий?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn--small comment__delete-btn" title="Удалить">✕</button>
+                </form>
+              {% endif %}
+            </div>
+            <div class="comment__text">{{ comment.text }}</div>
+          </div>
+        {% else %}
+          <p>Комментариев пока нет. Будьте первым!</p>
+        {% endfor %}
+
+        <h3>Добавить комментарий</h3>
+        <form method="post">
+          {{ form.hidden_tag() }}
+          <div class="form__group">
+            {{ form.text(class="input") }}
+            {% for error in form.text.errors %}
+              <div class="form__error">{{ error }}</div>
+            {% endfor %}
+          </div>
+          {{ form.submit(class="btn btn--primary") }}
+        </form>
+      </section>
+    </div>
+  </article>
+{% endblock %}

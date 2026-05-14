@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки профиля{% endblock %}
+
+{% block content %}
+  <h1>Настройки профиля</h1>
+
+  <section class="friends-block" style="max-width:520px;">
+    <form method="post" enctype="multipart/form-data" class="form">
+      {{ form.hidden_tag() }}
+
+      <div class="form__group">
+        {{ form.username.label }}
+        {{ form.username(class="input") }}
+        {% for error in form.username.errors %}
+          <div class="form__error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form__group">
+        {{ form.avatar.label }}
+        {{ form.avatar(class="input") }}
+        {% for error in form.avatar.errors %}
+          <div class="form__error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      {{ form.submit(class="btn btn--primary") }}
+    </form>
+  </section>
+{% endblock %}
+

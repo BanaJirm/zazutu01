@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Создать доску{% endblock %}
+
+{% block content %}
+  <h1>Создать доску</h1>
+  <form method="post" class="form">
+    {{ form.hidden_tag() }}
+
+    <div class="form__group">
+      {{ form.title.label }}
+      {{ form.title(class="input") }}
+      {% for error in form.title.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form__group">
+      {{ form.description.label }}
+      {{ form.description(class="input") }}
+      {% for error in form.description.errors %}
+        <div class="form__error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    {{ form.submit(class="btn btn--primary") }}
+  </form>
+{% endblock %}

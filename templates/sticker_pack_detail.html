@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Стикерпак «{{ pack.name }}»{% endblock %}
+
+{% block content %}
+  <h1>Стикерпак «{{ pack.name }}»</h1>
+  <p>
+    <a href="{{ url_for('sticker_packs_list') }}" class="btn">← Мои стикерпаки</a>
+  </p>
+
+  <div style="margin-bottom:1.5rem;">
+    <h2 style="font-size:1.1rem;">Добавить стикер</h2>
+    <form method="post" enctype="multipart/form-data" class="form" style="max-width:400px;">
+      {{ form.hidden_tag() }}
+      <div class="form__group">
+        <span class="form__label">{{ form.image.label.text }}</span>
+        <div class="attach-input-wrap">
+          {{ form.image(class="attach-input-hidden", accept="image/*") }}
+          <label for="{{ form.image.id }}" class="attach-input-label">📎 {{ form.image.label.text }}</label>
+        </div>
+        {% for error in form.image.errors %}
+          <div class="form__error">{{ error }}</div>
+        {% endfor %}
+      </div>
+      {{ form.submit(class="btn btn--primary") }}
+    </form>
+  </div>
+
+  <h2 style="font-size:1.1rem;">Стикеры ({{ pack.stickers|length }})</h2>
+  {% if pack.stickers %}
+    <div class="sticker-pack-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr)); gap:0.75rem; margin-top:0.5rem;">
+      {% for s in pack.stickers %}
+        <div class="sticker-pack-item" style="position:relative;">
+          <img
+            src="{{ url_for('static', filename='uploads/' ~ s.image_filename) }}"
+            alt="Стикер"
+            style="width:100%; max-width:100px; height:100px; object-fit:contain; border-radius:0.5rem; background:rgba(0,0,0,0.06); display:block;"
+          >
+          <form method="post" action="{{ url_for('sticker_delete', pack_id=pack.id, sticker_id=s.id) }}" style="margin-top:0.25rem;" onsubmit="return confirm('Удалить этот стикер?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn--small btn--danger">Удалить</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>В стикерпаке пока нет стикеров. Добавьте изображение выше.</p>
+  {% endif %}
+
+  <div class="sticker-pack-delete-section" style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(0,0,0,0.1);">
+    <form method="post" action="{{ url_for('sticker_pack_delete', pack_id=pack.id) }}" style="display:inline;" onsubmit="return confirm('Удалить весь стикерпак? Это нельзя отменить.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn--danger">Удалить стикерпак</button>
+    </form>
+  </div>
+{% endblock %}
